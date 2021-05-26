@@ -113,7 +113,7 @@ func main() {
 		}
 	},
 		ssh.PasswordAuth(func(ctx ssh.Context, pass string) bool {
-			return pass == "SSHPASSWD"
+			return pass == PASSWORD && ctx.User() == USERNAME
 		}),
 	)
 }
