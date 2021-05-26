@@ -67,6 +67,14 @@ func confirmShellConfig(s ssh.Session) (size pty.Winsize, shell string) {
 	return winsize, shellPath
 }
 
+func exit_on_error(message string, err error) {
+	if err != nil {
+		color.Red(message)
+		fmt.Println(err)
+		os.Exit(0)
+	}
+}
+
 func main() {
 	parser := argparse.NewParser("pty_bind_shell", "")
 	var HOST *string = parser.String("H", "host", &argparse.Options{Required: false, Default: "0.0.0.0", Help: "Host to bind or connect to"})
