@@ -80,7 +80,7 @@ func main() {
 			c := exec.Command(shell)
 			_pty, _err := pty.StartWithSize(c, &winsize)
 			if _err != nil {
-				io.WriteString(s, "\n[-] Spwan pty failed, using simple command shell.\n")
+				io.WriteString(s, "\n[-] Spawn pty failed, using simple command shell.\n")
 				simpleCommandShellHandler(s)
 			} else {
 
