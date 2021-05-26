@@ -1,7 +1,9 @@
 package pty_bind_shell
 
 import (
+	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"runtime"
 	"strconv"
