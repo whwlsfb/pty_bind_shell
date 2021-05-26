@@ -1,4 +1,4 @@
-module ptytest
+module pty_bind_shell
 
 go 1.16
 
