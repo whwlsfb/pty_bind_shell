@@ -1,3 +1,4 @@
 pty_bind_shell.exe
 pty_bind_shell
-.vscode/launch.json
+.vscode/
+.idea/

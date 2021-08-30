@@ -10,9 +10,28 @@ import (
 	"github.com/akamensky/argparse"
 	"github.com/fatih/color"
 	"github.com/gliderlabs/ssh"
+	"github.com/pkg/sftp"
 	"golang.org/x/term"
 )
 
+func SftpHandler(sess ssh.Session) {
+
+	debugStream := os.Stdout
+	serverOptions := []sftp.ServerOption{
+		sftp.WithDebug(debugStream),
+	}
+	server, err := sftp.NewServer(
+		sess,
+		serverOptions...,
+	)
+	if err != nil {
+		return
+	}
+	if err := server.Serve(); err == io.EOF {
+		server.Close()
+	}
+
+}
 func simpleCommandShellHandler(s ssh.Session) {
 	term := term.NewTerminal(s, "> ")
 	for {
@@ -51,12 +70,18 @@ func main() {
 	var PASSWORD *string = parser.String("p", "password", &argparse.Options{Required: false, Default: "superuser", Help: "SSH password"})
 	err := parser.Parse(os.Args)
 	exit_on_error("[PARSER ERROR]", err)
-	ssh.ListenAndServe(*HOST+":"+*PORT, func(s ssh.Session) {
-		io.WriteString(s, "\n[-] Windows dont have tty, using simple command shell.\n")
-		simpleCommandShellHandler(s)
-	},
-		ssh.PasswordAuth(func(ctx ssh.Context, pass string) bool {
+	server := ssh.Server{
+		Addr: *HOST + ":" + *PORT, // IP and PORT to connect on
+		PasswordHandler: ssh.PasswordHandler(func(ctx ssh.Context, pass string) bool {
 			return pass == *PASSWORD && ctx.User() == *USERNAME
 		}),
-	)
+		SubsystemHandlers: map[string]ssh.SubsystemHandler{
+			"sftp": SftpHandler,
+		},
+		Handler: func(s ssh.Session) {
+			io.WriteString(s, "\n[-] Windows dont have tty, using simple command shell.\n")
+			simpleCommandShellHandler(s)
+		},
+	}
+	server.ListenAndServe()
 }

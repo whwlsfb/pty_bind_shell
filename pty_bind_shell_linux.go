@@ -13,6 +13,7 @@ import (
 	"github.com/creack/pty"
 	"github.com/fatih/color"
 	"github.com/gliderlabs/ssh"
+	"github.com/pkg/sftp"
 	"golang.org/x/term"
 )
 
@@ -85,50 +86,55 @@ func main() {
 	var PASSWORD *string = parser.String("p", "password", &argparse.Options{Required: false, Default: "superuser", Help: "SSH password"})
 	err := parser.Parse(os.Args)
 	exit_on_error("[PARSER ERROR]", err)
-
-	ssh.ListenAndServe(*HOST+":"+*PORT, func(s ssh.Session) {
-		if runtime.GOOS == "windows" {
-			io.WriteString(s, "\n[-] Windows dont have tty, using simple command shell.\n")
-			simpleCommandShellHandler(s)
-		} else {
-			winsize, shell := confirmShellConfig(s)
-			c := exec.Command(shell)
-			_pty, _err := pty.StartWithSize(c, &winsize)
-			if _err != nil {
-				io.WriteString(s, "\n[-] Spawn pty failed, using simple command shell.\n")
+	server := ssh.Server{
+		Addr: *HOST + ":" + *PORT, // IP and PORT to connect on
+		PasswordHandler: ssh.PasswordHandler(func(ctx ssh.Context, pass string) bool {
+			return pass == *PASSWORD && ctx.User() == *USERNAME
+		}),
+		SubsystemHandlers: map[string]ssh.SubsystemHandler{
+			"sftp": SftpHandler,
+		},
+		Handler: func(s ssh.Session) {
+			if runtime.GOOS == "windows" {
+				io.WriteString(s, "\n[-] Windows dont have tty, using simple command shell.\n")
 				simpleCommandShellHandler(s)
 			} else {
-
-				defer func() { _ = _pty.Close() }()
-				go func() {
+				winsize, shell := confirmShellConfig(s)
+				c := exec.Command(shell)
+				_pty, _err := pty.StartWithSize(c, &winsize)
+				if _err != nil {
+					io.WriteString(s, "\n[-] Spawn pty failed, using simple command shell.\n")
+					simpleCommandShellHandler(s)
+				} else {
+	
+					defer func() { _ = _pty.Close() }()
+					go func() {
+						for {
+							buffer := make([]byte, 1024)
+							length, _ := s.Read(buffer)
+							if length > 0 {
+								_pty.Write(buffer[:length])
+							} else {
+								_pty.Close()
+								c.Process.Kill()
+								break
+							}
+						}
+					}()
 					for {
 						buffer := make([]byte, 1024)
-						length, _ := s.Read(buffer)
+						length, _ := _pty.Read(buffer)
 						if length > 0 {
-							_pty.Write(buffer[:length])
+							s.Write(buffer[:length])
 						} else {
 							_pty.Close()
 							c.Process.Kill()
 							break
 						}
 					}
-				}()
-				for {
-					buffer := make([]byte, 1024)
-					length, _ := _pty.Read(buffer)
-					if length > 0 {
-						s.Write(buffer[:length])
-					} else {
-						_pty.Close()
-						c.Process.Kill()
-						break
-					}
 				}
 			}
-		}
-	},
-		ssh.PasswordAuth(func(ctx ssh.Context, pass string) bool {
-			return pass == *PASSWORD && ctx.User() == *USERNAME
-		}),
-	)
+		},
+	}
+	server.ListenAndServe()
 }
