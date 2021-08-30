@@ -17,6 +17,24 @@ import (
 	"golang.org/x/term"
 )
 
+func SftpHandler(sess ssh.Session) {
+
+	debugStream := os.Stdout
+	serverOptions := []sftp.ServerOption{
+		sftp.WithDebug(debugStream),
+	}
+	server, err := sftp.NewServer(
+		sess,
+		serverOptions...,
+	)
+	if err != nil {
+		return
+	}
+	if err := server.Serve(); err == io.EOF {
+		server.Close()
+	}
+
+}
 func simpleCommandShellHandler(s ssh.Session) {
 	term := term.NewTerminal(s, ">")
 	for {
@@ -106,7 +124,7 @@ func main() {
 					io.WriteString(s, "\n[-] Spawn pty failed, using simple command shell.\n")
 					simpleCommandShellHandler(s)
 				} else {
-	
+
 					defer func() { _ = _pty.Close() }()
 					go func() {
 						for {
