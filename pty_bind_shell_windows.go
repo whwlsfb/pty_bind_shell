@@ -14,7 +14,7 @@ import (
 )
 
 func simpleCommandShellHandler(s ssh.Session) {
-	term := term.NewTerminal(s, ">")
+	term := term.NewTerminal(s, "> ")
 	for {
 		line, err := term.ReadLine()
 		if err != nil {

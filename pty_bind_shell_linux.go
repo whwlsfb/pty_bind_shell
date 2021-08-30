@@ -1,4 +1,4 @@
-package pty_bind_shell
+package main
 
 import (
 	"fmt"
@@ -60,7 +60,7 @@ func requestUserInput(term *term.Terminal, requestText string, defaultVal string
 func confirmShellConfig(s ssh.Session) (size pty.Winsize, shell string) {
 	term := term.NewTerminal(s, ">")
 	cols, _ := strconv.ParseUint(requestUserInput(term, "Please input winsize Cols [150]: \n", "150"), 10, 10)
-	rows, _ := strconv.ParseInt(requestUserInput(term, "Please input winsize Rows [70]: \n", "100"), 10, 10)
+	rows, _ := strconv.ParseInt(requestUserInput(term, "Please input winsize Rows [70]: \n", "70"), 10, 10)
 	shellPath := requestUserInput(term, "Please input shell path [/bin/sh]: \n", "/bin/sh")
 	winsize := pty.Winsize{
 		Cols: uint16(cols),
