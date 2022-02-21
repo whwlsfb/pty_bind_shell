@@ -30,7 +30,7 @@ func SftpHandler(sess ssh.Session) {
 	}
 
 }
-func simpleCommandShellHandler(s ssh.Session) {
+func commandShellHandler(s ssh.Session) {
 	closed := false
 	term := term.NewTerminal(s, "")
 	shell := confirmShellConfig(s)
@@ -119,8 +119,7 @@ func main() {
 			"sftp": SftpHandler,
 		},
 		Handler: func(s ssh.Session) {
-			io.WriteString(s, "\n[-] Windows dont have tty, using simple command shell.\n")
-			simpleCommandShellHandler(s)
+			commandShellHandler(s)
 		},
 	}
 	server.ListenAndServe()
