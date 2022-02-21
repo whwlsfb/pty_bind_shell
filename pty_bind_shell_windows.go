@@ -2,16 +2,14 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"os"
-	"os/exec"
-	"strings"
-
 	"github.com/akamensky/argparse"
 	"github.com/fatih/color"
 	"github.com/gliderlabs/ssh"
 	"github.com/pkg/sftp"
 	"golang.org/x/term"
+	"io"
+	"os"
+	"os/exec"
 )
 
 func SftpHandler(sess ssh.Session) {
@@ -33,27 +31,69 @@ func SftpHandler(sess ssh.Session) {
 
 }
 func simpleCommandShellHandler(s ssh.Session) {
-	term := term.NewTerminal(s, "> ")
+	closed := false
+	term := term.NewTerminal(s, "")
+	shell := confirmShellConfig(s)
+	c := exec.Command(shell)
+	stdout, err := c.StdoutPipe()
+	if err != nil {
+		return
+	}
+	stdin, err := c.StdinPipe()
+	if err != nil {
+		return
+	}
+	c.Stderr = s.Stderr()
+	c.Start()
+
+	defer func() { closed = true }()
+
+	go func() {
+		for {
+			if !closed {
+				comm, _ := term.ReadLine()
+				stdin.Write([]byte(comm + "\r\n"))
+			} else {
+				break
+			}
+		}
+	}()
 	for {
+		buffer := make([]byte, 1024)
+		length, _ := stdout.Read(buffer)
+		if length > 0 {
+			s.Write(buffer[:length])
+		} else {
+			c.Process.Kill()
+			break
+		}
+	}
+	c.Wait()
+
+}
+func requestUserInput(term *term.Terminal, requestText string, defaultVal string) (val string) {
+	_val := defaultVal
+	for {
+		term.Write([]byte(requestText))
 		line, err := term.ReadLine()
 		if err != nil {
 			break
 		}
-		in := strings.Split(line, " ")
-		if in[0] == "" {
-			continue
-		}
-		if in[0] == "exit" {
+		if line == "" {
+			break
+		} else {
+			_val = line
 			break
 		}
-		exe := exec.Command(in[0], in[1:]...)
-		out, err := exe.Output()
-		if err != nil {
-			term.Write([]byte(err.Error() + "\n"))
-		}
-		term.Write(out)
 	}
+	return _val
 }
+func confirmShellConfig(s ssh.Session) (shell string) {
+	term := term.NewTerminal(s, ">")
+	shellPath := requestUserInput(term, "Please input shell path [cmd.exe]: \n", "cmd.exe")
+	return shellPath
+}
+
 func exit_on_error(message string, err error) {
 	if err != nil {
 		color.Red(message)
